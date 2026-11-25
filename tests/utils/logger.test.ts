@@ -39,4 +39,24 @@ describe("Logger", () => {
             expect.stringContaining('"password":"[REDACTED]"')
         )
     })
+
+    it("Debe ocultar la API key dentro de una URL de ExchangeRate-API", () => {
+        vi.stubEnv("LOG_LEVEL", "info")
+
+        const spy = vi.spyOn(process.stdout, "write").mockReturnValue(true)
+
+        logger.info("Consulta externa", {
+            url: "https://v6.exchangerate-api.com/v6/private-test-key/latest/USD"
+        })
+
+        expect(spy).toHaveBeenCalledWith(
+            expect.stringContaining(
+                "https://v6.exchangerate-api.com/v6/[REDACTED]/latest/USD"
+            )
+        )
+
+        expect(spy).not.toHaveBeenCalledWith(
+            expect.stringContaining("private-test-key")
+        )
+    })
 })
