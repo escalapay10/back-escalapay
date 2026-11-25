@@ -10,16 +10,26 @@ const ORDER: Record<Level, number> = {
 const SENSITIVE_KEYS =
     /password|token|secret|authorization|api_key|apiKey|card_number|cardNumber|cvv|iban/i
 
+const EXCHANGE_RATE_API_KEY_URL =
+    /(https:\/\/v6\.exchangerate-api\.com\/v6\/)[^/\s?#]+/gi
 
-// Limpiamos posibles entradas de informacion sensible y posible circularidad de objetos
+function sanitizeText(value: string): string {
+    return value.replace(
+        EXCHANGE_RATE_API_KEY_URL,
+        "$1[REDACTED]"
+    )
+}
 
 function serializeLog(value: unknown): string {
     const seen = new WeakSet<object>()
 
     return JSON.stringify(value, (key, current) => {
-
         if (SENSITIVE_KEYS.test(key)) {
             return "[REDACTED]"
+        }
+
+        if (typeof current === "string") {
+            return sanitizeText(current)
         }
 
         if (typeof current === "bigint") {
@@ -48,7 +58,6 @@ function writeLog(
     message: string,
     context: Record<string, unknown> = {}
 ): void {
-
     const min = process.env.LOG_LEVEL ?? "info"
 
     if (min === "silent") return
