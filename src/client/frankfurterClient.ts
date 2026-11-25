@@ -1,6 +1,6 @@
 import { httpGet } from "../utils/httpClient.js"
+import { fxRequestSchema } from "../schemas/fx.schema.js"
 import {
-    frankfurterRequestSchema,
     frankfurterResponseSchema
 } from "../schemas/frankfurter.schema.js"
 import type { FxRate } from "../types/fx.types.js"
@@ -11,7 +11,7 @@ export async function getFrankfurterRates(
     base: string,
     targets: string[]
 ): Promise<FxRate[]> {
-    const request = frankfurterRequestSchema.parse({
+    const request = fxRequestSchema.parse({
         base,
         targets
     })
