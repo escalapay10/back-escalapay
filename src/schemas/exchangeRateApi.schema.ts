@@ -8,7 +8,7 @@ export const exchangeRateApiResponseSchema = z.object({
         (timestamp) =>
             Number.isFinite(new Date(timestamp * 1000).getTime()),
         {
-            message: "Invalid exchange rate update timestamp"
+            message: "La fecha de actualización del tipo de cambio es inválida"
         }
     ),
     conversion_rates: z.record(
