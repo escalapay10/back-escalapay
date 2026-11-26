@@ -36,7 +36,7 @@ export async function getFrankfurterRates(
                 (target) => rows.some((row) => row.quote === target)
             ),
         {
-            message: "Frankfurter returned unexpected or missing currency pairs"
+            message: "Frankfurter devolvió pares de monedas inesperados o incompletos"
         }
     ).parse(response)
 

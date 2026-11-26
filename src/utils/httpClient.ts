@@ -25,7 +25,7 @@ export async function httpGet(
 
         if (!response.ok) {
             throw new HttpClientError(
-                `External service returned HTTP ${response.status}`,
+                `El servicio externo respondió con el estado HTTP ${response.status}`,
                 "HTTP_ERROR",
                 response.status
             )
@@ -37,7 +37,7 @@ export async function httpGet(
         } catch (error) {
             if (error instanceof SyntaxError) {
                 throw new HttpClientError(
-                    "External service returned invalid JSON",
+                    "El servicio externo devolvió un JSON inválido",
                     "INVALID_JSON"
                 )
             }
@@ -47,7 +47,7 @@ export async function httpGet(
     } catch (error) {
         if (controller.signal.aborted) {
             throw new HttpClientError(
-                "External request timed out",
+                "La petición al servicio externo superó el tiempo de espera",
                 "TIMEOUT"
             )
         }
@@ -57,7 +57,7 @@ export async function httpGet(
         }
 
         throw new HttpClientError(
-            "External request failed",
+            "Falló la conexión o la lectura de la respuesta del servicio externo",
             "NETWORK_ERROR"
         )
     } finally {
