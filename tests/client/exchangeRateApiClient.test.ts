@@ -63,7 +63,9 @@ describe("Cliente de ExchangeRate-API", () => {
 
         await expect(
             getExchangeRateApiRates("USD", ["EUR"])
-        ).rejects.toThrow("EXCHANGE_RATE_API_KEY is not configured")
+        ).rejects.toThrow(
+            "La variable EXCHANGE_RATE_API_KEY no está configurada"
+        )
 
         expect(httpGetMock).not.toHaveBeenCalled()
     })
@@ -94,7 +96,7 @@ describe("Cliente de ExchangeRate-API", () => {
         await expect(
             getExchangeRateApiRates("USD", ["EUR", "ARS"])
         ).rejects.toThrow(
-            "ExchangeRate-API did not return a rate for ARS"
+            "ExchangeRate-API no devolvió una tasa para ARS"
         )
     })
 })

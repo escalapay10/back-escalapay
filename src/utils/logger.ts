@@ -79,7 +79,7 @@ function writeLog(
         output = JSON.stringify({
             ts: new Date().toISOString(),
             level,
-            message: "Failed to serialize log"
+            message: "No se pudo serializar el registro"
         }) + "\n"
     }
 

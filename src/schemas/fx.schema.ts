@@ -10,7 +10,7 @@ export const fxRequestSchema = z.object({
 }).refine(
     ({ base, targets }) => !targets.includes(base),
     {
-        message: "Target currencies must differ from the base currency",
+        message: "Las monedas de destino deben ser distintas de la moneda base",
         path: ["targets"]
     }
 )

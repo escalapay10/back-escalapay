@@ -21,7 +21,7 @@ export async function getExchangeRateApiRates(
     const apiKey = process.env.EXCHANGE_RATE_API_KEY?.trim()
 
     if (!apiKey) {
-        throw new Error("EXCHANGE_RATE_API_KEY is not configured")
+        throw new Error("La variable EXCHANGE_RATE_API_KEY no está configurada")
     }
 
     const url =
@@ -33,7 +33,7 @@ export async function getExchangeRateApiRates(
     const data = exchangeRateApiResponseSchema.refine(
         (value) => value.base_code === request.base,
         {
-            message: "ExchangeRate-API returned an unexpected base currency",
+            message: "ExchangeRate-API devolvió una moneda base distinta de la solicitada",
             path: ["base_code"]
         }
     ).parse(response)
@@ -47,7 +47,7 @@ export async function getExchangeRateApiRates(
 
         if (rate === undefined) {
             throw new Error(
-                `ExchangeRate-API did not return a rate for ${target}`
+                `ExchangeRate-API no devolvió una tasa para ${target}`
             )
         }
 
