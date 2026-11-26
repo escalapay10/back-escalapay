@@ -1,8 +1,6 @@
-import { httpGet } from "../utils/httpClient.js"
+import { httpGet } from "../utils/index.js"
 import { fxRequestSchema } from "../schemas/fx.schema.js"
-import {
-    exchangeRateApiResponseSchema
-} from "../schemas/exchangeRateApi.schema.js"
+import { exchangeRateApiResponseSchema } from "../schemas/exchangeRateApi.schema.js"
 import type { FxRate } from "../types/fx.types.js"
 
 const EXCHANGE_RATE_API_URL = "https://v6.exchangerate-api.com/v6"

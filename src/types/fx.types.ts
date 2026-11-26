@@ -7,3 +7,8 @@ export interface FxRate {
     date: string
     provider: FxProvider
 }
+
+export interface FxCacheEntry {
+    rates: FxRate[]
+    expiresAt: number
+}
