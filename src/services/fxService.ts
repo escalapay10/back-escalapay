@@ -2,7 +2,7 @@ import { ZodError } from "zod"
 import { getFrankfurterRates, getExchangeRateApiRates } from "../client/index.js"
 import { HttpClientError, FxServiceError } from "../errors/index.js"
 import { fxRequestSchema } from "../schemas/fx.schema.js"
-import { logger } from "../utils/logger.js"
+import { logger, fxCache } from "../utils/index.js"
 import type { FxRate } from "../types/fx.types.js"
 
 export async function getFxRates(
@@ -16,11 +16,25 @@ export async function getFxRates(
 
     const requestedTargets = [...new Set(request.targets)]
 
+    const cachedRates = fxCache.get(
+        request.base,
+        requestedTargets
+    )
+
+    if (cachedRates) {
+        return cachedRates
+    }
+
     try {
-        return await getFrankfurterRates(
+        const rates = await getFrankfurterRates(
             request.base,
             requestedTargets
         )
+
+        fxCache.set(request.base, requestedTargets, rates)
+
+        return rates
+
     } catch (error) {
         if (
             !(error instanceof HttpClientError) &&
@@ -42,10 +56,14 @@ export async function getFxRates(
     }
 
     try {
-        return await getExchangeRateApiRates(
+        const rates = await getExchangeRateApiRates(
             request.base,
             requestedTargets
         )
+
+        fxCache.set(request.base, requestedTargets, rates)
+
+        return rates
     } catch {
         logger.error("No se pudieron obtener tipos de cambio de ninguno de los proveedores", {
             providers: ["frankfurter", "exchange-rate-api"],
