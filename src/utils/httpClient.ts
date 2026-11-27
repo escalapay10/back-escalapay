@@ -1,7 +1,26 @@
 import { HttpClientError } from "../errors/HttpClientError.js"
 import type { HttpGetOptions } from "../types/httpClient.types.js"
 
-export async function httpGet(
+const RETRY_DELAY_MS = 500
+
+const RETRYABLE_HTTP_STATUSES = [408, 500, 502, 503, 504]
+
+function isRetryable(error: unknown): boolean {
+    if (!(error instanceof HttpClientError)) {
+        return false
+    }
+
+    if (error.code === "NETWORK_ERROR" || error.code === "TIMEOUT") {
+        return true
+    }
+
+    return (
+        error.code === "HTTP_ERROR" &&
+        RETRYABLE_HTTP_STATUSES.includes(error.status ?? 0)
+    )
+}
+
+async function requestOnce(
     url: string,
     options: HttpGetOptions = {}
 ): Promise<unknown> {
@@ -63,4 +82,23 @@ export async function httpGet(
     } finally {
         clearTimeout(timeoutId)
     }
+}
+
+export async function httpGet(
+    url: string,
+    options: HttpGetOptions = {}
+): Promise<unknown> {
+    try {
+        return await requestOnce(url, options)
+    } catch (error) {
+        if (!isRetryable(error)) {
+            throw error
+        }
+
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, RETRY_DELAY_MS)
+        })
+    }
+
+    return requestOnce(url, options)
 }

@@ -55,7 +55,7 @@ describe("Cliente HTTP", () => {
         })
     })
 
-    it("Debe cancelar la petición cuando supera el timeout", async () => {
+    it("Debe informar el timeout cuando ambos intentos superan el tiempo de espera", async () => {
         vi.useFakeTimers()
 
         const fetchMock = vi.fn<typeof fetch>().mockImplementation(
@@ -85,7 +85,50 @@ describe("Cliente HTTP", () => {
             code: "TIMEOUT"
         })
 
-        await vi.advanceTimersByTimeAsync(4000)
+        await vi.advanceTimersByTimeAsync(8500)
         await assertion
+
+        expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+
+    it("Debe recuperar la consulta en el segundo intento después de un error temporal", async () => {
+        vi.useFakeTimers()
+
+        const data = { base: "USD", rates: { EUR: 0.92 } }
+
+        const fetchMock = vi.fn<typeof fetch>()
+            .mockResolvedValueOnce(new Response(null, { status: 503 }))
+            .mockResolvedValueOnce(Response.json(data))
+
+        vi.stubGlobal("fetch", fetchMock)
+
+        const request = httpGet("https://example.com/rates")
+        const assertion = expect(request).resolves.toEqual(data)
+
+        await vi.advanceTimersByTimeAsync(499)
+
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+
+        await vi.advanceTimersByTimeAsync(1)
+        await assertion
+
+        expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+
+    it("No debe reintentar una petición rechazada por credenciales inválidas", async () => {
+        const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+            new Response(null, { status: 401 })
+        )
+
+        vi.stubGlobal("fetch", fetchMock)
+
+        await expect(
+            httpGet("https://example.com/rates")
+        ).rejects.toMatchObject({
+            code: "HTTP_ERROR",
+            status: 401
+        })
+
+        expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 })
