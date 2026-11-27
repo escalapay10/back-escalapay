@@ -1,36 +1,58 @@
 # EscalaPay – Backend 💱
 
-Backend de EscalaPay, una plataforma orientada a la gestión de pagos y operaciones financieras. Este repositorio contiene la aplicación Express y los servicios de consulta de tipos de cambio, con validación de datos, proveedores externos, fallback y caché en memoria.
+Backend de EscalaPay, una plataforma orientada a la gestión de pagos y operaciones financieras. Este repositorio contiene la aplicación Express, la autenticación de usuarios, la gestión inicial de wallets y balances, y los servicios de consulta de tipos de cambio, con validación de datos, proveedores externos, fallback y caché en memoria.
 
 ## 🛠️ Tecnologías
 
 - Node.js
 - Express
 - TypeScript
+- PostgreSQL
 - dotenv
 - Zod para validación de datos.
 - Vitest para pruebas automatizadas.
 - Supertest para pruebas HTTP de la aplicación.
+- JWT para autenticación.
+- bcrypt para el manejo seguro de contraseñas.
 
 ## 📁 Estructura del proyecto
 
 ```text
 src/
-├── client/               # Integraciones con proveedores externos
-├── errors/               # Errores del cliente HTTP y del servicio FX
+├── client/                   # Integraciones con proveedores externos
+├── config/                   # Configuración de conexión a PostgreSQL
+├── database/
+│   ├── migrations/            # Migraciones SQL
+│   ├── migrate.ts             # Ejecutor de migraciones
+│   └── testConnection.ts      # Verificación de conexión a DB
+├── errors/                   # Errores del cliente HTTP y del servicio FX
 ├── middleware/
-│   └── errorHandler.ts
-├── schemas/              # Validaciones con Zod
+│   ├── auth.middleware.ts     # Autenticación mediante JWT
+│   └── errorHandler.ts       # Manejo centralizado de errores
+├── modules/
+│   ├── auth/
+│   │   ├── controllers/       # Controladores de autenticación
+│   │   ├── routes/            # Rutas de autenticación
+│   │   ├── schemas/            # Validaciones de autenticación
+│   │   └── services/           # Lógica de autenticación
+│   └── wallet/
+│       ├── controllers/       # Controladores de Wallet
+│       ├── routes/            # Rutas de Wallet
+│       └── services/           # Lógica de balances
+├── schemas/                  # Validaciones compartidas
 ├── services/
-│   └── fxService.ts
-├── types/                # Contratos y tipos compartidos
-├── utils/                # Logger, cliente HTTP y caché FX
+│   └── fxService.ts           # Servicio de tipos de cambio
+├── types/                    # Contratos y tipos compartidos
+├── utils/                    # Logger, cliente HTTP y caché FX
 ├── app.ts
 └── server.ts
 
 tests/
 ├── client/
 ├── middleware/
+├── modules/
+│   ├── auth/
+│   └── wallet/
 ├── services/
 ├── utils/
 ├── app.test.ts
@@ -44,6 +66,7 @@ Antes de ejecutar el proyecto, es necesario tener instalado:
 - Node.js 20 o superior, utilizando una versión compatible con las dependencias instaladas.
 - npm
 - Git
+- PostgreSQL
 
 ## 📦 Instalación
 
@@ -74,6 +97,9 @@ PORT=3000
 LOG_LEVEL=info
 EXCHANGE_RATE_API_KEY=
 FX_CACHE_TTL_MS=300000
+
+DATABASE_URL=
+JWT_SECRET=
 ```
 
 | Variable | Descripción |
@@ -82,8 +108,12 @@ FX_CACHE_TTL_MS=300000
 | `LOG_LEVEL` | Nivel mínimo de logs: `debug`, `info`, `warn` o `error`. Admite `silent` para desactivarlos. El valor predeterminado es `info`. |
 | `EXCHANGE_RATE_API_KEY` | Clave necesaria para consultar ExchangeRate-API, el proveedor secundario. |
 | `FX_CACHE_TTL_MS` | Tiempo de validez de la caché en milisegundos. Si falta o no es un número positivo y finito, se utilizan `300000` ms, equivalentes a cinco minutos. |
+| `DATABASE_URL` | Cadena de conexión a PostgreSQL. |
+| `JWT_SECRET` | Clave secreta utilizada para firmar y verificar los JWT. |
 
-Frankfurter no requiere API key. La clave de ExchangeRate-API se obtiene desde la cuenta del proveedor y debe configurarse en el entorno correspondiente. El servidor carga las variables del archivo `.env` mediante dotenv.
+Frankfurter no requiere API key. La clave de ExchangeRate-API se obtiene desde la cuenta del proveedor y debe configurarse en el entorno correspondiente.
+
+El servidor carga las variables del archivo `.env` mediante dotenv.
 
 No subir archivos `.env` ni credenciales reales al repositorio. `.env.example` documenta la configuración sin incluir secretos.
 
@@ -110,8 +140,224 @@ npm run start
 | `npm run build` | Compila el código TypeScript. |
 | `npm run start` | Ejecuta la versión compilada del servidor. |
 | `npm run typecheck` | Verifica los tipos de TypeScript sin generar archivos. |
+| `npm run migrate` | Ejecuta las migraciones pendientes de la base de datos. |
 | `npm test` | Ejecuta la suite de tests con Vitest. |
 | `npm run test:watch` | Ejecuta Vitest en modo observación durante el desarrollo. |
+
+## 🗄️ Base de datos y migraciones
+
+EscalaPay utiliza PostgreSQL para almacenar la información persistente de la aplicación.
+
+La conexión se centraliza en `src/config/database.ts`, utilizando un pool de conexiones de PostgreSQL.
+
+Las migraciones se encuentran en:
+
+```text
+src/database/migrations/
+```
+
+El sistema de migraciones permite aplicar cambios estructurales y registrar las migraciones ejecutadas para evitar repetirlas.
+
+### Migraciones implementadas
+
+- `001_create_initial_schema.sql`: creación de la estructura inicial de la base de datos.
+- `002_seed_currencies.sql`: inserción de las monedas iniciales.
+- `003_seed_initial_balances.sql`: creación de balances iniciales en cero para las wallets existentes.
+
+Las monedas contempladas inicialmente son:
+
+| Código | Moneda |
+|---|---|
+| USD | Dólar estadounidense |
+| EUR | Euro |
+| ARS | Peso argentino |
+
+### Ejecutar migraciones
+
+Una vez configurada la conexión a PostgreSQL:
+
+```bash
+npm run migrate
+```
+
+El ejecutor de migraciones identifica los archivos pendientes, los ejecuta y registra su aplicación en la base de datos.
+
+La migración de balances iniciales es idempotente, por lo que no duplica balances existentes.
+
+## 🔐 Módulo de autenticación
+
+El módulo de autenticación permite registrar usuarios, iniciar sesión y consultar el perfil del usuario autenticado.
+
+### Endpoints
+
+| Método | Endpoint | Descripción | Autenticación |
+|---|---|---|---|
+| POST | `/api/auth/register` | Registro de usuario | No |
+| POST | `/api/auth/login` | Inicio de sesión | No |
+| GET | `/api/auth/me` | Consulta del perfil autenticado | Sí |
+
+### Registro
+
+**Endpoint:**
+
+```http
+POST /api/auth/register
+```
+
+Ejemplo de solicitud:
+
+```json
+{
+  "name": "Usuario Prueba",
+  "email": "wallet.test@example.com",
+  "password": "WalletTest123"
+}
+```
+
+Respuesta exitosa:
+
+```json
+{
+  "message": "Usuario registrado exitosamente",
+  "user": {
+    "id": "uuid",
+    "name": "Usuario Prueba",
+    "email": "wallet.test@example.com"
+  },
+  "token": "jwt"
+}
+```
+
+El registro crea el usuario y su wallet asociada.
+
+### Inicio de sesión
+
+**Endpoint:**
+
+```http
+POST /api/auth/login
+```
+
+Ejemplo de solicitud:
+
+```json
+{
+  "email": "wallet.test@example.com",
+  "password": "WalletTest123"
+}
+```
+
+Respuesta exitosa:
+
+```json
+{
+  "message": "Inicio de sesión exitoso",
+  "user": {
+    "id": "uuid",
+    "name": "Usuario Prueba",
+    "email": "wallet.test@example.com"
+  },
+  "token": "jwt"
+}
+```
+
+### Consulta del perfil
+
+**Endpoint:**
+
+```http
+GET /api/auth/me
+```
+
+Requiere un token JWT válido.
+
+### Autenticación mediante JWT
+
+Las rutas protegidas utilizan JWT enviado mediante el header:
+
+```http
+Authorization: Bearer <token>
+```
+
+El token tiene una duración de un día.
+
+Actualmente no se implementa refresh token.
+
+Las contraseñas no se exponen en las respuestas de la API.
+
+## 💰 Módulo Wallet
+
+El módulo Wallet permite consultar los balances asociados a la wallet del usuario autenticado.
+
+Cada usuario tiene una wallet asociada, y esta puede tener balances correspondientes a diferentes monedas.
+
+### Endpoint de consulta de balances
+
+```http
+GET /api/wallet/balances
+```
+
+<text color="success" weight="medium">Requiere autenticación mediante JWT.</text>
+
+El usuario se identifica a partir del token de autenticación. El Frontend no necesita enviar el `walletId`, evitando que un usuario pueda consultar la wallet de otro usuario mediante el envío de identificadores externos.
+
+### Ejemplo de solicitud
+
+```http
+GET http://localhost:3000/api/wallet/balances
+```
+
+Header:
+
+```http
+Authorization: Bearer <token>
+```
+
+### Respuesta exitosa
+
+```json
+{
+  "walletId": "uuid",
+  "balances": [
+    {
+      "code": "ARS",
+      "name": "Peso argentino",
+      "symbol": "$",
+      "amount": "0.00"
+    },
+    {
+      "code": "EUR",
+      "name": "Euro",
+      "symbol": "€",
+      "amount": "0.00"
+    },
+    {
+      "code": "USD",
+      "name": "Dólar estadounidense",
+      "symbol": "$",
+      "amount": "0.00"
+    }
+  ]
+}
+```
+
+### Funcionamiento
+
+- La ruta está protegida mediante middleware de autenticación JWT.
+- El usuario se identifica mediante el token.
+- Se consulta la wallet asociada al usuario autenticado.
+- Se consultan los balances relacionados con la wallet.
+- Se contemplan las monedas USD, EUR y ARS.
+- Si falta alguno de los balances iniciales, el servicio lo crea con valor cero.
+- La creación de balances utiliza una operación idempotente para evitar duplicados.
+- Los balances se devuelven junto con la información de la moneda.
+- Los montos se manejan como strings en las respuestas para conservar la representación decimal.
+
+### Balances iniciales
+
+Los balances iniciales se crean en cero.
+
+Actualmente no se registra una operación financiera DEPOSIT para inicializar los fondos. El módulo implementa la creación y consulta de balances, mientras que el registro de depósitos y las operaciones financieras pertenecen al alcance de los siguientes hitos.
 
 ## 💱 Servicio de tipos de cambio
 
@@ -190,17 +436,30 @@ La sanitización es una protección adicional: no se deben registrar credenciale
 
 ## 🧪 Testing
 
-Las pruebas utilizan Vitest y se encuentran en `tests/`. Incluyen la aplicación y su middleware de errores, el Logger, el cliente HTTP, los clientes de proveedores, el servicio FX y la caché.
+Las pruebas utilizan Vitest y se encuentran en `tests/`.
+
+Incluyen:
+
+- Aplicación y middleware de errores.
+- Logger.
+- Cliente HTTP.
+- Clientes de proveedores.
+- Servicio FX.
+- Caché.
+- Autenticación.
+- Middleware de autenticación JWT.
+- Servicio Wallet.
+- Controlador Wallet.
 
 Las consultas externas se simulan y las pruebas de timeout y vencimiento utilizan temporizadores simulados, sin esperar los tiempos reales.
 
-Ejecutar todos los tests:
+### Ejecutar todos los tests
 
 ```bash
 npm test
 ```
 
-Comprobar los tipos del código de la aplicación:
+### Comprobar los tipos
 
 ```bash
 npm run typecheck
@@ -216,17 +475,34 @@ npx tsc --project tests/tsconfig.json --noEmit
 
 ### Implementado
 
-- Configuración inicial de Express, TypeScript, variables de entorno y manejo básico de errores.
+- Configuración inicial de Express y TypeScript.
+- Configuración de variables de entorno.
+- Manejo centralizado de errores.
 - Logger centralizado con sanitización.
 - Cliente HTTP reutilizable con timeout y errores identificables.
 - Integración con Frankfurter y ExchangeRate-API.
 - Validación de datos con Zod y normalización al contrato compartido `FxRate`.
 - Servicio FX con fallback y caché en memoria.
-- Pruebas automatizadas de las funcionalidades desarrolladas.
+- Configuración de PostgreSQL.
+- Sistema de migraciones de base de datos.
+- Creación y persistencia de usuarios.
+- Registro e inicio de sesión.
+- Autenticación mediante JWT.
+- Middleware de autenticación para rutas protegidas.
+- Creación de wallet asociada al usuario.
+- Creación de balances iniciales en USD, EUR y ARS.
+- Consulta autenticada de balances mediante `GET /api/wallet/balances`.
+- Pruebas automatizadas de los módulos implementados.
 
-### Próximos pasos del módulo FX
+### Pendientes
 
-- Definir e implementar la estrategia de reintentos para fallos transitorios.
-- Acordar los contratos HTTP con el equipo de frontend y Backend 1.
-- Exponer los endpoints de consulta de tasas.
-- Coordinar la persistencia y consulta del historial en PostgreSQL con Backend 1.
+- Estandarización de los códigos de error de API.
+- Configuración de CORS para la integración con Frontend.
+- Despliegue del Backend.
+- Exposición de endpoints de consulta de tasas.
+- Coordinación del contrato HTTP de Rates con Backend 2.
+- Implementación de operaciones financieras.
+- Registro de transacciones y ledger.
+- Depósitos, compras, ventas y operaciones de cambio.
+- Reglas de cálculo, comisiones, precisión y atomicidad de operaciones.
+- Persistencia y consulta del historial de tasas según la coordinación del equipo.
