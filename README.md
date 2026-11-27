@@ -140,7 +140,7 @@ El cliente reutilizable `httpGet()` utiliza fetch nativo y permite peticiones GE
 - El timeout predeterminado es de **cuatro segundos por petición**, incluida la lectura de la respuesta.
 - Distingue errores HTTP, de red o transferencia, de timeout y de JSON inválido mediante `HttpClientError`.
 - Devuelve `unknown` para que cada integración valide la estructura recibida.
-- Actualmente se realiza **un intento por proveedor**, sin reintentos automáticos. Si ambos agotan su timeout, la consulta puede tardar aproximadamente ocho segundos.
+- Se permite **un reintento por proveedor**, después de esperar 500 ms, ante errores de red, timeout o estados HTTP `408`, `500`, `502`, `503` y `504`. Si los dos intentos de ambos proveedores agotan su timeout, la consulta puede tardar aproximadamente 17 segundos.
 
 ### Caché en memoria
 
@@ -226,7 +226,6 @@ npx tsc --project tests/tsconfig.json --noEmit
 
 ### Próximos pasos del módulo FX
 
-- Definir e implementar la estrategia de reintentos para fallos transitorios.
 - Acordar los contratos HTTP con el equipo de frontend y Backend 1.
 - Exponer los endpoints de consulta de tasas.
 - Coordinar la persistencia y consulta del historial en PostgreSQL con Backend 1.
