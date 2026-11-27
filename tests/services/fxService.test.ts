@@ -3,7 +3,7 @@ import { ZodError } from "zod"
 import { getFxRates } from "../../src/services/fxService.js"
 import { getFrankfurterRates, getExchangeRateApiRates } from "../../src/client/index.js"
 import { HttpClientError, FxServiceError } from "../../src/errors/index.js"
-import { logger } from "../../src/utils/logger.js"
+import { logger, fxCache } from "../../src/utils/index.js"
 import type { FxRate } from "../../src/types/fx.types.js"
 
 vi.mock("../../src/client/index.js", () => ({
@@ -24,6 +24,7 @@ const exchangeRateApiMock = vi.mocked(getExchangeRateApiRates)
 describe("Servicio FX", () => {
     afterEach(() => {
         vi.resetAllMocks()
+        fxCache.clear()
     })
 
     it("Debe devolver las tasas del proveedor principal sin consultar el respaldo", async () => {
@@ -123,5 +124,28 @@ describe("Servicio FX", () => {
         expect(exchangeRateApiMock).not.toHaveBeenCalled()
         expect(logger.warn).not.toHaveBeenCalled()
         expect(logger.error).not.toHaveBeenCalled()
+    })
+
+    it("Debe reutilizar las tasas guardadas sin volver a consultar los proveedores", async () => {
+        const rates: FxRate[] = [
+            {
+                base: "EUR",
+                quote: "USD",
+                rate: 1.09,
+                date: "2026-11-25",
+                provider: "frankfurter"
+            }
+        ]
+
+        frankfurterMock.mockResolvedValue(rates)
+
+        const firstResult = await getFxRates("EUR", ["USD"])
+        const secondResult = await getFxRates("EUR", ["USD"])
+
+        expect(firstResult).toEqual(rates)
+        expect(secondResult).toEqual(rates)
+
+        expect(frankfurterMock).toHaveBeenCalledOnce()
+        expect(exchangeRateApiMock).not.toHaveBeenCalled()
     })
 })

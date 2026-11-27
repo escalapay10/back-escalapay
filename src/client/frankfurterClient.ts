@@ -1,8 +1,6 @@
-import { httpGet } from "../utils/httpClient.js"
+import { httpGet } from "../utils/index.js"
 import { fxRequestSchema } from "../schemas/fx.schema.js"
-import {
-    frankfurterResponseSchema
-} from "../schemas/frankfurter.schema.js"
+import { frankfurterResponseSchema } from "../schemas/frankfurter.schema.js"
 import type { FxRate } from "../types/fx.types.js"
 
 const FRANKFURTER_RATES_URL = "https://api.frankfurter.dev/v2/rates"
