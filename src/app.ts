@@ -2,6 +2,7 @@ import express from "express";
 import errorHandler from "./middleware/errorHandler.js";
 import authRoutes from "./modules/auth/routes/auth.routes.js";
 import walletRoutes from "./modules/wallet/routes/wallet.routes.js";
+import ratesRoutes from "./modules/rates/routes/rates.routes.js";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/wallet", walletRoutes);
+app.use("/api/rates", ratesRoutes);
 
 app.use(errorHandler);
 

@@ -419,7 +419,67 @@ interface FxRate {
 
 Estos proveedores ofrecen tasas de referencia. Realizar una petición nueva no garantiza una cotización de mercado en tiempo real ni fija las condiciones de una operación financiera.
 
-El servicio FX es interno. Los endpoints de tasas y el formato definitivo de las respuestas HTTP están pendientes de implementación y coordinación con el equipo.
+### Endpoint de consulta de tasas
+
+```http
+GET /api/rates?from=USD&to=ARS
+```
+
+El endpoint consulta un par de monedas mediante el servicio FX, reutilizando la caché y el fallback entre proveedores.
+
+La consulta requiere autenticación mediante JWT. Enviar el encabezado:
+
+```http
+Authorization: Bearer <token>
+```
+
+Si el token falta, es inválido o venció, el middleware de autenticación responde con HTTP 401.
+
+#### Parámetros de consulta
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `from` | string | Moneda de origen. Obligatoria. |
+| `to` | string | Moneda de destino. Obligatoria y distinta de la moneda de origen. |
+
+Los códigos deben tener tres letras. Se eliminan los espacios al inicio y al final y se convierten a mayúsculas antes de consultar el servicio.
+
+#### Respuesta exitosa — HTTP 200
+
+Ejemplo ilustrativo:
+
+```json
+{
+  "from": "USD",
+  "to": "ARS",
+  "rate": 1050.25,
+  "provider": "frankfurter",
+  "respondedAt": "2026-11-26T16:30:00.000Z"
+}
+```
+
+- La respuesta es un objeto directo, sin una propiedad contenedora `data`.
+- `rate` es un número e indica cuántas unidades de `to` equivalen a una unidad de `from`. Se conserva el valor numérico recibido del proveedor, sin redondearlo para la presentación.
+- `provider` puede ser `frankfurter` o `exchange-rate-api`.
+- `respondedAt` es una fecha ISO generada cuando el controlador prepara la respuesta. Indica cuándo respondió EscalaPay, incluso si las tasas provienen de la caché; no representa la fecha de publicación de la tasa ni una nueva consulta al proveedor.
+
+#### Errores del endpoint
+
+| Estado HTTP | `code` | Situación |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Faltan parámetros, su formato es inválido o las monedas de origen y destino son iguales. |
+| 503 | `FX_PROVIDERS_UNAVAILABLE` | El servicio no pudo obtener las tasas de ninguno de los proveedores. |
+
+Los errores conocidos de Rates utilizan el formato `{ message, code }`. Por ejemplo:
+
+```json
+{
+  "message": "Indicá monedas de origen y destino válidas y distintas",
+  "code": "VALIDATION_ERROR"
+}
+```
+
+Los errores inesperados se derivan al middleware general de errores de la aplicación.
 
 ## 📝 Logger
 
@@ -450,6 +510,7 @@ Incluyen:
 - Middleware de autenticación JWT.
 - Servicio Wallet.
 - Controlador Wallet.
+- Endpoint de Rates: respuesta exitosa, rechazo de monedas iguales y fallo de proveedores, con el servicio FX simulado.
 
 Las consultas externas se simulan y las pruebas de timeout y vencimiento utilizan temporizadores simulados, sin esperar los tiempos reales.
 
@@ -483,6 +544,7 @@ npx tsc --project tests/tsconfig.json --noEmit
 - Integración con Frankfurter y ExchangeRate-API.
 - Validación de datos con Zod y normalización al contrato compartido `FxRate`.
 - Servicio FX con fallback y caché en memoria.
+- Consulta de tasas mediante `GET /api/rates`, con validación de parámetros y respuesta acordada para el Frontend.
 - Configuración de PostgreSQL.
 - Sistema de migraciones de base de datos.
 - Creación y persistencia de usuarios.
@@ -499,8 +561,6 @@ npx tsc --project tests/tsconfig.json --noEmit
 - Estandarización de los códigos de error de API.
 - Configuración de CORS para la integración con Frontend.
 - Despliegue del Backend.
-- Exposición de endpoints de consulta de tasas.
-- Coordinación del contrato HTTP de Rates con Backend 2.
 - Implementación de operaciones financieras.
 - Registro de transacciones y ledger.
 - Depósitos, compras, ventas y operaciones de cambio.
